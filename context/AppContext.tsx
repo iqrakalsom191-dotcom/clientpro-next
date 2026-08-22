@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-
+import { supabase } from '@/lib/supabase'
 type Client = {
   id: string
   name: string
@@ -41,101 +41,184 @@ type AppContextType = {
   clients: Client[]
   projects: Project[]
   invoices: Invoice[]
-  addClient: (client: Omit<Client, 'id'>) => void
-  deleteClient: (id: string) => void
-  updateClient: (id: string, data: Omit<Client, "id">) => void
-  addProject: (project: Omit<Project, 'id'>) => void
-  deleteProject: (id: string) => void
-  updateProject: (id: string, data: Partial<Project>) => void
-  addInvoice: (invoice: Omit<Invoice, 'id' | 'number'>) => void
-  deleteInvoice: (id: string) => void
-  updateInvoice: (id: string, data: Partial<Invoice>) => void
+  loading: boolean
+  addClient: (client: Omit<Client, 'id'>) => Promise<void>
+  deleteClient: (id: string) => Promise<void>
+  updateClient: (id: string, data: Omit<Client, 'id'>) => Promise<void>
+  addProject: (project: Omit<Project, 'id'>) => Promise<void>
+  deleteProject: (id: string) => Promise<void>
+  updateProject: (id: string, data: Partial<Project>) => Promise<void>
+  addInvoice: (invoice: Omit<Invoice, 'id' | 'number'>) => Promise<void>
+  deleteInvoice: (id: string) => Promise<void>
+  updateInvoice: (id: string, data: Partial<Invoice>) => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
-
-function loadFromStorage<T>(key: string): T[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const data = localStorage.getItem(key)
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
-  }
-}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [loaded, setLoaded] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  // Load from localStorage once on mount
   useEffect(() => {
-    setClients(loadFromStorage<Client>('cp_clients'))
-    setProjects(loadFromStorage<Project>('cp_projects'))
-    setInvoices(loadFromStorage<Invoice>('cp_invoices'))
-    setLoaded(true)
+    async function fetchAll() {
+      setLoading(true)
+      const [{ data: clientsData }, { data: projectsData }, { data: invoicesData }] =
+        await Promise.all([
+          supabase.from('clients').select('*').order('created_at', { ascending: false }),
+          supabase.from('projects').select('*').order('created_at', { ascending: false }),
+          supabase.from('invoices').select('*').order('created_at', { ascending: false }),
+        ])
+      if (clientsData) setClients(clientsData.map(mapClient))
+      if (projectsData) setProjects(projectsData.map(mapProject))
+      if (invoicesData) setInvoices(invoicesData.map(mapInvoice))
+      setLoading(false)
+    }
+    fetchAll()
   }, [])
 
-  // Save to localStorage on change (only after initial load)
-  useEffect(() => {
-    if (!loaded) return
-    localStorage.setItem('cp_clients', JSON.stringify(clients))
-  }, [clients, loaded])
-
-  useEffect(() => {
-    if (!loaded) return
-    localStorage.setItem('cp_projects', JSON.stringify(projects))
-  }, [projects, loaded])
-
-  useEffect(() => {
-    if (!loaded) return
-    localStorage.setItem('cp_invoices', JSON.stringify(invoices))
-  }, [invoices, loaded])
-
-  const addClient = (client: Omit<Client, 'id'>) => {
-    setClients(prev => [...prev, { ...client, id: Date.now().toString() }])
+  function mapClient(row: Record<string, unknown>): Client {
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      email: (row.email as string) ?? '',
+      phone: (row.phone as string) ?? '',
+      service: (row.service as string) ?? '',
+      budget: (row.budget as string) ?? '',
+      progress: (row.progress as number) ?? 0,
+      tasks: (row.tasks as Client['tasks']) ?? [],
+      deadline: (row.deadline as string) ?? '',
+      status: (row.status as Client['status']) ?? 'Pending',
+      notes: (row.notes as string) ?? '',
+    }
   }
 
-  const updateClient = (id: string, data: Omit<Client, "id">) => {
-    setClients(prev => prev.map(c => c.id === id ? { ...c, ...data } : c))
+  function mapProject(row: Record<string, unknown>): Project {
+    return {
+      id: row.id as string,
+      title: (row.name as string) ?? '',
+      client: (row.client as string) ?? '',
+      status: (row.status as Project['status']) ?? 'In Progress',
+      deadline: (row.deadline as string) ?? '',
+      budget: String(row.budget ?? ''),
+      progress: (row.progress as number) ?? 0,
+      tasks: (row.tasks as Project['tasks']) ?? [],
+    }
   }
 
-  const deleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id))
+  function mapInvoice(row: Record<string, unknown>): Invoice {
+    return {
+      id: row.id as string,
+      number: (row.invoice_number as string) ?? '',
+      client: (row.client as string) ?? '',
+      project: (row.project as string) ?? '',
+      amount: String(row.amount ?? ''),
+      status: (row.status as Invoice['status']) ?? 'Unpaid',
+      date: (row.due_date as string) ?? '',
+    }
   }
 
-  const addProject = (project: Omit<Project, 'id'>) => {
-    setProjects(prev => [...prev, { ...project, id: Date.now().toString(), progress: 0, tasks: [] }])
+  const addClient = async (client: Omit<Client, 'id'>) => {
+    const { data, error } = await supabase.from('clients').insert([{
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      service: client.service,
+      budget: client.budget,
+      progress: client.progress ?? 0,
+      tasks: client.tasks ?? [],
+      deadline: client.deadline || null,
+      status: client.status,
+      notes: client.notes,
+    }]).select().single()
+    if (!error && data) setClients(prev => [mapClient(data), ...prev])
   }
 
-  const updateProject = (id: string, data: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data } : p))
+  const updateClient = async (id: string, data: Omit<Client, 'id'>) => {
+    const { error } = await supabase.from('clients').update({
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      service: data.service,
+      budget: data.budget,
+      progress: data.progress ?? 0,
+      tasks: data.tasks ?? [],
+      deadline: data.deadline || null,
+      status: data.status,
+      notes: data.notes,
+    }).eq('id', id)
+    if (!error) setClients(prev => prev.map(c => c.id === id ? { ...c, ...data } : c))
   }
 
-  const deleteProject = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id))
+  const deleteClient = async (id: string) => {
+    const { error } = await supabase.from('clients').delete().eq('id', id)
+    if (!error) setClients(prev => prev.filter(c => c.id !== id))
   }
 
-  const addInvoice = (invoice: Omit<Invoice, 'id' | 'number'>) => {
-    setInvoices(prev => {
-      const number = `INV-${String(prev.length + 1).padStart(3, '0')}`
-      return [...prev, { ...invoice, id: Date.now().toString(), number }]
-    })
+  const addProject = async (project: Omit<Project, 'id'>) => {
+    const { data, error } = await supabase.from('projects').insert([{
+      name: project.title,
+      client: project.client,
+      status: project.status,
+      deadline: project.deadline || null,
+      budget: project.budget,
+      progress: project.progress ?? 0,
+      tasks: project.tasks ?? [],
+    }]).select().single()
+    if (!error && data) setProjects(prev => [mapProject(data), ...prev])
   }
 
-  const updateInvoice = (id: string, data: Partial<Invoice>) => {
-    setInvoices(prev => prev.map(i => i.id === id ? { ...i, ...data } : i))
+  const updateProject = async (id: string, data: Partial<Project>) => {
+    const { error } = await supabase.from('projects').update({
+      name: data.title,
+      client: data.client,
+      status: data.status,
+      deadline: data.deadline || null,
+      budget: data.budget,
+      progress: data.progress,
+      tasks: data.tasks,
+    }).eq('id', id)
+    if (!error) setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data } : p))
   }
 
-  const deleteInvoice = (id: string) => {
-    setInvoices(prev => prev.filter(i => i.id !== id))
+  const deleteProject = async (id: string) => {
+    const { error } = await supabase.from('projects').delete().eq('id', id)
+    if (!error) setProjects(prev => prev.filter(p => p.id !== id))
+  }
+
+  const addInvoice = async (invoice: Omit<Invoice, 'id' | 'number'>) => {
+    const number = `INV-${String(invoices.length + 1).padStart(3, '0')}`
+    const { data, error } = await supabase.from('invoices').insert([{
+      invoice_number: number,
+      client: invoice.client,
+      project: invoice.project,
+      amount: invoice.amount,
+      status: invoice.status,
+      due_date: invoice.date || null,
+    }]).select().single()
+    if (!error && data) setInvoices(prev => [mapInvoice(data), ...prev])
+  }
+
+  const updateInvoice = async (id: string, data: Partial<Invoice>) => {
+    const { error } = await supabase.from('invoices').update({
+      client: data.client,
+      project: data.project,
+      amount: data.amount,
+      status: data.status,
+      due_date: data.date || null,
+    }).eq('id', id)
+    if (!error) setInvoices(prev => prev.map(i => i.id === id ? { ...i, ...data } : i))
+  }
+
+  const deleteInvoice = async (id: string) => {
+    const { error } = await supabase.from('invoices').delete().eq('id', id)
+    if (!error) setInvoices(prev => prev.filter(i => i.id !== id))
   }
 
   return (
     <AppContext.Provider value={{
-      clients, projects, invoices,
+      clients, projects, invoices, loading,
       addClient, deleteClient, updateClient,
       addProject, deleteProject, updateProject,
       addInvoice, deleteInvoice, updateInvoice,
