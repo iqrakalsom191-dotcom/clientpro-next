@@ -223,7 +223,3 @@ export default function ClientDetailPage() {
   )
 }
 
-export async function generateStaticParams() {
-  return []
-}
-export const dynamicParams = false
