@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-static'
+
 import { useState } from 'react'
 import { useApp } from '@/context/AppContext'
 import { useParams, useRouter } from 'next/navigation'
@@ -53,7 +55,7 @@ export default function ProjectDetailPage() {
   }
 
   const tasks = project.tasks || []
-  const doneTasks = tasks.filter(t => t.done).length
+  const doneTasks = tasks.filter((t: { id: string; text: string; done: boolean }) => t.done).length
 
   const handleSave = () => {
     if (!form.title.trim()) return
@@ -77,12 +79,12 @@ export default function ProjectDetailPage() {
   }
 
   const toggleTask = (taskId: string) => {
-    const updated = tasks.map(t => t.id === taskId ? { ...t, done: !t.done } : t)
+    const updated = tasks.map((t: { id: string; text: string; done: boolean }) => t.id === taskId ? { ...t, done: !t.done } : t)
     updateProject(project.id, { tasks: updated })
   }
 
   const deleteTask = (taskId: string) => {
-    updateProject(project.id, { tasks: tasks.filter(t => t.id !== taskId) })
+    updateProject(project.id, { tasks: tasks.filter((t: { id: string; text: string; done: boolean }) => t.id !== taskId) })
   }
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all duration-200'
@@ -273,3 +275,8 @@ export default function ProjectDetailPage() {
     </div>
   )
 }
+
+export async function generateStaticParams() {
+  return []
+}
+export const dynamicParams = false

@@ -9,8 +9,8 @@ type Client = {
   phone: string
   service: string
   budget: string
-  progress: number
-  tasks: { id: string; text: string; done: boolean }[]
+  progress?: number
+  tasks?: { id: string; text: string; done: boolean }[]
   deadline: string
   status: 'Pending' | 'In Progress' | 'Done'
   notes: string
@@ -23,6 +23,8 @@ type Project = {
   status: 'In Progress' | 'Completed' | 'On Hold'
   deadline: string
   budget: string
+  progress?: number
+  tasks?: { id: string; text: string; done: boolean }[]
 }
 
 type Invoice = {
@@ -44,7 +46,7 @@ type AppContextType = {
   updateClient: (id: string, data: Omit<Client, "id">) => void
   addProject: (project: Omit<Project, 'id'>) => void
   deleteProject: (id: string) => void
-  updateProject: (id: string, data: Omit<Project, "id">) => void
+  updateProject: (id: string, data: Partial<Project>) => void
   addInvoice: (invoice: Omit<Invoice, 'id' | 'number'>) => void
   deleteInvoice: (id: string) => void
   updateInvoice: (id: string, data: Partial<Invoice>) => void
@@ -108,7 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProjects(prev => [...prev, { ...project, id: Date.now().toString(), progress: 0, tasks: [] }])
   }
 
-  const updateProject = (id: string, data: Omit<Project, "id">) => {
+  const updateProject = (id: string, data: Partial<Project>) => {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data } : p))
   }
 

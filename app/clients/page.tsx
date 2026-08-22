@@ -14,6 +14,8 @@ type ClientForm = {
   deadline: string
   status: 'Pending' | 'In Progress' | 'Done'
   notes: string
+  progress?: number
+  tasks?: { id: string; text: string; done: boolean }[]
 }
 
 const emptyForm: ClientForm = {

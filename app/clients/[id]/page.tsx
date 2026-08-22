@@ -1,5 +1,8 @@
 'use client'
 
+
+export const dynamic = 'force-static'
+
 import { useState } from 'react'
 import { useApp } from '@/context/AppContext'
 import { useParams, useRouter } from 'next/navigation'
@@ -15,6 +18,8 @@ type ClientForm = {
   deadline: string
   status: 'Pending' | 'In Progress' | 'Done'
   notes: string
+  progress?: number
+  tasks?: { id: string; text: string; done: boolean }[]
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
@@ -217,3 +222,8 @@ export default function ClientDetailPage() {
     </div>
   )
 }
+
+export async function generateStaticParams() {
+  return []
+}
+export const dynamicParams = false

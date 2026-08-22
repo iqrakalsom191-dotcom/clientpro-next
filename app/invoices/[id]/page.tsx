@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-static'
+
 import { useApp } from '@/context/AppContext'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -165,3 +167,8 @@ export default function InvoiceDetailPage() {
     </div>
   )
 }
+
+export async function generateStaticParams() {
+  return []
+}
+export const dynamicParams = false
