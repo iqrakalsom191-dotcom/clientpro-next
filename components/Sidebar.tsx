@@ -11,6 +11,7 @@ const navItems = [
   { href: '/clients',  label: 'Clients',   icon: '🧑‍💼' },
   { href: '/projects', label: 'Projects',  icon: '📁' },
   { href: '/invoices', label: 'Invoices',  icon: '🧾' },
+  { href: '/settings', label: 'Settings',  icon: '⚙️' },
 ]
 
 export default function Sidebar() {
