@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 type Client = {
   id: string
@@ -42,6 +44,11 @@ type AppContextType = {
   projects: Project[]
   invoices: Invoice[]
   loading: boolean
+  user: User | null
+  authLoading: boolean
+  login: (email: string, password: string) => Promise<{ error: string | null }>
+  signup: (email: string, password: string) => Promise<{ error: string | null }>
+  logout: () => Promise<void>
   addClient: (client: Omit<Client, 'id'>) => Promise<void>
   deleteClient: (id: string) => Promise<void>
   updateClient: (id: string, data: Omit<Client, 'id'>) => Promise<void>
@@ -56,12 +63,32 @@ type AppContextType = {
 const AppContext = createContext<AppContextType | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      setAuthLoading(false)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+
     async function fetchAll() {
       setLoading(true)
       const [{ data: clientsData }, { data: projectsData }, { data: invoicesData }] =
@@ -76,7 +103,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
     fetchAll()
-  }, [])
+  }, [user])
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { error: error.message }
+    router.push('/')
+    router.refresh()
+    return { error: null }
+  }
+
+  const signup = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password })
+    if (error) return { error: error.message }
+    router.push('/')
+    router.refresh()
+    return { error: null }
+  }
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setClients([])
+    setProjects([])
+    setInvoices([])
+    router.push('/login')
+    router.refresh()
+  }
 
   function mapClient(row: Record<string, unknown>): Client {
     return {
@@ -219,6 +271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       clients, projects, invoices, loading,
+      user, authLoading, login, signup, logout,
       addClient, deleteClient, updateClient,
       addProject, deleteProject, updateProject,
       addInvoice, deleteInvoice, updateInvoice,

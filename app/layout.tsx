@@ -1,6 +1,6 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
-import Sidebar from '@/components/Sidebar'
+import AppShell from '@/components/AppShell'
 import { AppProvider } from '@/context/AppContext'
 import { DarkModeProvider } from '@/context/DarkModeContext'
 
@@ -17,12 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <DarkModeProvider>
           <AppProvider>
-            <div className="app-wrapper">
-              <Sidebar />
-              <main className="main-content">
-                {children}
-              </main>
-            </div>
+            <AppShell>{children}</AppShell>
           </AppProvider>
         </DarkModeProvider>
       </body>
