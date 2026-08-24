@@ -3,7 +3,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { createBrowserSupabaseClient } from '@/lib/supabase'
+
+const supabase = createBrowserSupabaseClient()
 type Client = {
   id: string
   name: string
